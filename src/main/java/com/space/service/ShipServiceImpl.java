@@ -1,0 +1,231 @@
+package com.space.service;
+
+import com.space.model.Ship;
+import com.space.model.ShipType;
+import com.space.repository.ShipRepository;
+import com.space.service.ShipService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
+import org.springframework.stereotype.Service;
+
+import javax.persistence.criteria.CriteriaQuery;
+import javax.persistence.criteria.Root;
+import java.util.Calendar;
+import java.util.Date;
+import java.util.GregorianCalendar;
+import java.util.List;
+
+@Service
+public class ShipServiceImpl implements ShipService {
+
+    @Autowired
+    private ShipRepository shipRepository;
+
+    @Override
+    public List<Ship> getAllShips(Specification<Ship>shipSpecification) {
+        return shipRepository.findAll();
+    }
+
+    @Override
+    public Page<Ship> getAllShips(Specification<Ship> shipSpecification, Pageable pageable) {
+        return shipRepository.findAll(shipSpecification,pageable);
+    }
+
+    @Override
+    public Ship addShip(Ship ship) {
+
+        if(ship.getUsed()==null){
+            ship.setUsed(false);
+        }
+        if (ship.getCrewSize() > 9999 || ship.getName().equals("") || ship.getProdDate().getTime() < 0)
+            throw new RuntimeException();
+        Double rating = calculateRating(ship);
+        ship.setRating(rating);
+
+        return shipRepository.saveAndFlush(ship);
+    }
+
+    @Override
+    public boolean ifIdExists(Long id){
+        return shipRepository.existsById(id);
+    }
+
+    @Override
+    public boolean ifIdValid(Long id) {
+        return id>0;
+    }
+
+    @Override
+    public Ship editShip(Long id,Ship ship) {
+        Ship tobeUpdated = shipRepository.findById(id).get();
+        if(ship.getName()!=null){
+            if (ship.getName().length() == 0 || ship.getName().length() > 50)
+                throw new RuntimeException();
+            tobeUpdated.setName(ship.getName());
+        }
+        if(ship.getPlanet()!=null){
+            tobeUpdated.setPlanet(ship.getPlanet());
+        }
+        if(ship.getShipType()!=null){
+            tobeUpdated.setShipType(ship.getShipType());
+        }
+
+        if(ship.getProdDate()!=null){
+            if (ship.getProdDate().getTime() < 0)
+                throw new RuntimeException();
+            tobeUpdated.setProdDate(ship.getProdDate());
+        }
+        if(ship.getUsed()!=null){
+            tobeUpdated.setUsed(ship.getUsed());
+        }
+        if(ship.getSpeed()!=null){
+            tobeUpdated.setSpeed(ship.getSpeed());
+        }
+        if(ship.getCrewSize()!=null){
+            if (ship.getCrewSize() < 1 || ship.getCrewSize() > 9999)
+                throw new RuntimeException();
+            tobeUpdated.setCrewSize(ship.getCrewSize());
+        }
+
+        Double newRating = calculateRating(tobeUpdated);
+        tobeUpdated.setRating(newRating);
+        return shipRepository.saveAndFlush(tobeUpdated);
+    }
+
+    @Override
+    public void deleteShip(Long id) {
+        shipRepository.deleteById(id);
+    }
+
+    @Override
+    public Ship getShipById(Long id) {
+
+        return shipRepository.findById(id).get();
+    }
+
+    @Override
+    public Specification<Ship> filterByName(String name) {
+
+        return (Specification<Ship>) (root, query, criteriaBuilder) ->
+                name == null ? null : criteriaBuilder.like(root.get("name"),"%" + name + "%");
+    }
+
+    @Override
+    public Specification<Ship> filterByPlanet(String planet) {
+
+        return (Specification<Ship>) (root, query, criteriaBuilder) ->
+                planet == null ? null : criteriaBuilder.like(root.get("planet"),"%" + planet + "%");
+    }
+
+    @Override
+    public Specification<Ship> filterByShipType(ShipType shipType) {
+
+        return (Specification<Ship>) (root, query, criteriaBuilder) ->
+                shipType == null ? null : criteriaBuilder.equal(root.get("shipType"), shipType);
+    }
+
+    @Override
+    public Specification<Ship> filterByDate(Long after, Long before) {
+
+        return (Specification<Ship>) (root, query, criteriaBuilder) ->
+        {
+            if(after==null&&before==null){
+                return null;
+            }
+            if(after==null){
+                Date beforeDate = new Date(before);
+                return criteriaBuilder.lessThanOrEqualTo(root.get("prodDate"), beforeDate);
+            }
+            if(before==null){
+                Date afterDate = new Date(after);
+                return criteriaBuilder.greaterThanOrEqualTo(root.get("prodDate"), afterDate);
+            }
+            Date beforeDate = new Date(before);
+            Date afterDate = new Date(after);
+            Date ad = new Date(afterDate.getYear(), 0, 1, 0, 0);
+            Date bd = new Date(beforeDate.getYear() - 1, 0, 1, 0, 0);
+            CriteriaQuery<Date> criteriaQuery = criteriaBuilder.createQuery(Date.class);
+           // criteriaQuery.select(root.get("prodDate")).;
+
+
+            return  criteriaBuilder.between(root.get("prodDate"), ad, bd);
+        };
+    }
+
+    @Override
+    public Specification<Ship> filterByUsage(Boolean isUsed) {
+
+        return (Specification<Ship>) (root, query, criteriaBuilder) ->{
+            if(isUsed==null){
+                return null;
+            }
+            if(isUsed){
+                return criteriaBuilder.isTrue(root.get("isUsed"));
+            }
+            return criteriaBuilder.isFalse(root.get("isUsed"));
+        };
+    }
+
+    @Override
+    public Specification<Ship> filterBySpeed(Double min, Double max) {
+
+        return (Specification<Ship>) (root, query, criteriaBuilder) ->{
+            if (min == null && max == null){
+                return null;
+            }
+            if (min == null){
+                return criteriaBuilder.lessThanOrEqualTo(root.get("speed"), max);
+            }
+            if (max == null){
+                return criteriaBuilder.greaterThanOrEqualTo(root.get("speed"), min);
+            }
+            return criteriaBuilder.between(root.get("speed"), min, max);
+        };
+    }
+
+    @Override
+    public Specification<Ship> filterByCrewSize(Integer min, Integer max) {
+
+        return (Specification<Ship>) (root, query, criteriaBuilder) ->{
+            if (min == null && max == null){
+                return null;
+            }
+            if (min == null){
+                return criteriaBuilder.lessThanOrEqualTo(root.get("crewSize"), max);
+            }
+            if (max == null){
+                return criteriaBuilder.greaterThanOrEqualTo(root.get("crewSize"), min);
+            }
+            return criteriaBuilder.between(root.get("crewSize"), min, max);
+        };
+    }
+
+    @Override
+    public Specification<Ship> filterByRating(Double min, Double max) {
+        return (Specification<Ship>) (root, query, criteriaBuilder) ->{
+            if (min == null && max == null){
+                return null;
+            }
+            if (min == null){
+                return criteriaBuilder.lessThanOrEqualTo(root.get("rating"), max);
+            }
+            if (max == null){
+                return criteriaBuilder.greaterThanOrEqualTo(root.get("rating"), min);
+            }
+            return criteriaBuilder.between(root.get("rating"), min, max);
+        };
+    }
+
+
+    private Double calculateRating(Ship ship){
+        double k = ship.getUsed() ? 0.5 : 1.0;
+        Calendar calendar = new GregorianCalendar();
+        calendar.setTime(ship.getProdDate());
+        int year = calendar.get(Calendar.YEAR);
+        Double currentRating = ((80*ship.getSpeed()*k)/(3019-year+1));
+        currentRating = Math.round(currentRating*100.0)/100.0;
+        return currentRating;
+    }
+}
