@@ -144,13 +144,10 @@ public class ShipServiceImpl implements ShipService {
             }
             Date beforeDate = new Date(before);
             Date afterDate = new Date(after);
-            Date ad = new Date(afterDate.getYear(), 0, 1, 0, 0);
-            Date bd = new Date(beforeDate.getYear() - 1, 0, 1, 0, 0);
-            CriteriaQuery<Date> criteriaQuery = criteriaBuilder.createQuery(Date.class);
-           // criteriaQuery.select(root.get("prodDate")).;
+          //  Date ad = new Date(afterDate.getYear(), 0, 1, 0, 0);
+        //    Date bd = new Date(beforeDate.getYear() - 1, 0, 1, 0, 0);
 
-
-            return  criteriaBuilder.between(root.get("prodDate"), ad, bd);
+            return  criteriaBuilder.between(root.get("prodDate"), afterDate, beforeDate);
         };
     }
 
