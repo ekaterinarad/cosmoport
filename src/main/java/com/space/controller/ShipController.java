@@ -12,7 +12,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
-import javax.validation.Valid;
 import java.util.List;
 
 @RestController
@@ -82,7 +81,7 @@ public class ShipController {
     // create ship
 
     @PostMapping(value = "/ships")
-    public @ResponseBody Ship addShip(@RequestBody @Valid Ship ship) {
+    public @ResponseBody Ship addShip(@RequestBody Ship ship) {
         try{
             shipService.addShip(ship);
         } catch (Exception e){
